@@ -1,4 +1,29 @@
-# vinext-starter
+# 县域报告地图
+
+全国县域报告任务管理：地图悬停查看甲方、联系人与任务进度，支持多人协作、Word/PDF 附件上传，以及数据库级报告名称去重。
+
+- [完整中文使用与运行说明](./README.zh-CN.md)
+- [已部署站点（需获得访问权限）](https://county-report-atlas.regaleel259.chatgpt.site)
+
+## 下载和测试
+
+需要 Node.js 22.13 或更高版本。首次运行：
+
+```powershell
+git clone https://github.com/gao-ao-1/map-task-report.git
+cd map-task-report
+npm ci
+npm run build
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_plain_captain_marvel.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_fuzzy_jack_murdock.sql
+npm run dev
+```
+
+打开 `http://127.0.0.1:5173`，点击登录，使用本机开发账号测试。后续启动只需 `npm run dev`；不要重复执行已应用的数据库迁移。
+
+本仓库包含前端、后端、数据库迁移和全国地图缓存，不包含真实报告、联系人数据或上传附件。GitHub 仓库用于保存源码，**仅开启 GitHub Pages 无法运行此完整系统**；线上运行需要数据库、附件存储和可信登录服务。当前线上版本通过 Sites 托管，本机测试数据与线上隔离。
+
+## 框架参考
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
