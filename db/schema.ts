@@ -1,4 +1,27 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+export const accounts = sqliteTable("accounts", {
+  id: text("id").primaryKey(),
+  username: text("username").notNull(),
+  usernameKey: text("username_key").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  salt: text("salt").notNull(),
+  role: text("role").notNull(),
+  disabled: integer("disabled").notNull().default(0),
+  createdAt: text("created_at").notNull(),
+});
+export const sessions = sqliteTable("sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => accounts.id),
+  authVersion: text("auth_version").notNull().default(""),
+  expiresAt: integer("expires_at").notNull(),
+});
+export const authLimits = sqliteTable("auth_limits", {
+  key: text("key").primaryKey(),
+  hits: integer("hits").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+});
 export const members = sqliteTable("members", {
   email: text("email").primaryKey(),
   role: text("role").notNull(),

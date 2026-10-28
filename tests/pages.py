@@ -16,9 +16,12 @@ with sync_playwright() as p:
  page.locator('path.region').first.wait_for()
  assert page.locator('path.region').count()>=34
  assert page.title()=='县域报告地图'
- expect(page.locator('.auth-banner')).to_contain_text('尚未连接团队任务数据')
+ assert page.get_by_role('link',name='县域报告地图',exact=True).get_attribute('href')=='./'
  assert all('—' in t for t in page.locator('.stats strong').all_text_contents())
- assert page.get_by_role('link',name='登录',exact=True).get_attribute('href')==workspace
+ page.get_by_role('button',name='登录',exact=True).click()
+ expect(page.locator('#account-title')).to_have_text('账号登录')
+ expect(page.get_by_role('button',name='立即注册',exact=True)).to_be_visible()
+ page.get_by_role('button',name='关闭账号窗口',exact=True).click()
  page.screenshot(path=str(out/'pages-desktop.png'),full_page=True)
  page.get_by_label('搜索县名、报告或甲方').fill('东城区')
  page.locator('.search-results button').filter(has_text='北京市 / 东城区').click()
@@ -39,8 +42,8 @@ with sync_playwright() as p:
  assert not failed,failed
  assert not any('/api/' in r for r in requests),'Static page must not call a nonexistent API'
  assert any('/public/geo/110000.json' in r for r in requests)
- page.route(workspace,lambda r:r.fulfill(status=200,body='Workspace navigation test'))
- page.get_by_role('button',name='登录并管理报告',exact=True).click()
- page.wait_for_url(workspace)
- print(json.dumps({'url':url,'passed':['static entry','national map','relative paths','county search','province-city drilldown','honest task state','workspace login navigation','no backend calls','mobile layout','no script or asset errors']},ensure_ascii=True))
+ page.get_by_role('button',name='新建报告',exact=True).first.click()
+ expect(page.locator('#account-title')).to_have_text('账号登录')
+ assert page.url==url
+ print(json.dumps({'url':url,'passed':['static entry','national map','relative paths','county search','province-city drilldown','honest task state','local account login dialog','no anonymous report requests','mobile layout','no script or asset errors']},ensure_ascii=True))
  browser.close()

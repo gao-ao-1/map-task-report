@@ -705,7 +705,9 @@ main {
 .table-scroll {
   overflow: auto;
 }
-table { min-width: 840px; }
+table {
+  min-width: 840px;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -1211,10 +1213,103 @@ tbody tr:hover {
     transition: none !important;
   }
 }
-@media (max-width:480px) {
- .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .page-heading { gap:14px; }
- .map-canvas { height:280px; }
- .page-heading .button { padding:10px 12px; }
- .stats strong small { display:inline; }
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .page-heading {
+    gap: 14px;
+  }
+  .map-canvas {
+    height: 280px;
+  }
+  .page-heading .button {
+    padding: 10px 12px;
+  }
+  .stats strong small {
+    display: inline;
+  }
+}
+.account-dialog {
+  width: 440px;
+  padding: 34px;
+}
+.account-logo {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  background: #e8f2eb;
+  color: #286c51;
+  border-radius: 14px;
+  margin-bottom: 22px;
+}
+.account-dialog h2 {
+  margin: 10px 0;
+}
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 17px;
+}
+.account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: #607c6a;
+}
+.account-form .button {
+  width: 100%;
+  margin-top: 5px;
+}
+.account-switch {
+  font-size: 12px;
+  text-align: center;
+  color: #899d90;
+  margin-top: 22px;
+}
+.account-switch button {
+  color: #287857;
+  font-weight: 600;
+  padding: 6px;
+}
+.account-error {
+  color: #9b3c34;
+  background: #fff1ee;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+}
+.account-success {
+  color: #367657;
+  background: #edf7ef;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0;
+}
+.account-dialog .account-note {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #96a899;
+  margin: 18px 0 0;
+}
+button.file-row {
+  width: 100%;
+  text-align: left;
+}
+@media (max-width: 480px) {
+  .account-dialog {
+    padding: 28px 22px;
+  }
+  .header-actions {
+    gap: 7px;
+  }
+  .header-actions .quiet {
+    font-size: 10px;
+  }
 }

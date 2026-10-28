@@ -1,5 +1,21 @@
 import { env } from "cloudflare:workers";
-import { getChatGPTUser } from "../../chatgpt-auth";
+import {
+  Failure,
+  Account,
+  usernameKey,
+  validPassword,
+  initializeAdmin,
+  createAccount,
+  passwordHash,
+  checkPassword,
+  issueSession,
+  authenticated,
+  publicUser,
+  rateLimit,
+  requestToken,
+  sha256,
+  changePassword,
+} from "../../../lib/auth";
 import { reportInput, checkFile } from "../../../lib/domain";
 import regions from "../../../lib/regions.json";
 export const dynamic = "force-dynamic";
@@ -11,42 +27,17 @@ const json = (value: unknown, status = 200) =>
       "X-Content-Type-Options": "nosniff",
     },
   });
-class Failure extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 async function handle(request: Request) {
   try {
-    const user = await getChatGPTUser();
-    if (!user) throw new Failure(401, "请先登录后查看团队报告");
     const db = env.DB,
       bucket = env.BUCKET;
     if (!db || !bucket) throw new Failure(503, "数据服务尚未配置");
-    const email = user.email.trim().toLowerCase(),
-      now = new Date().toISOString();
+    const now = new Date().toISOString();
     const path = new URL(request.url).pathname
         .split("/")
         .filter(Boolean)
         .slice(1),
       method = request.method;
-    // The Site is owner-private at creation. Its owner's first authenticated visit initializes membership atomically.
-    await db
-      .prepare(
-        "INSERT INTO members(email,role,created_at) SELECT ?,'admin',? WHERE NOT EXISTS(SELECT 1 FROM members)",
-      )
-      .bind(email, now)
-      .run();
-    const member = await db
-      .prepare("SELECT * FROM members WHERE email=?")
-      .bind(email)
-      .first<{ email: string; role: string }>();
-    if (!member)
-      throw new Failure(403, "你的账号尚未加入团队，请管理员添加你的登录邮箱");
-    const admin = member.role === "admin";
     const contentType = request.headers.get("content-type") || "";
     let input: Record<string, unknown> = {},
       uploadForm: FormData | null = null;
@@ -57,43 +48,104 @@ async function handle(request: Request) {
       if (!input || typeof input !== "object" || Array.isArray(input))
         throw new Failure(400, "请求内容格式错误");
     }
+    if (method !== "GET") {
+      const origin = request.headers.get("origin");
+      if (
+        origin &&
+        origin !== new URL(request.url).origin &&
+        origin !== "https://gao-ao-1.github.io"
+      )
+        throw new Failure(403, "请求来源不匹配");
+    }
+    const ip = request.headers.get("cf-connecting-ip") || "local";
+    if (path[0] === "auth" && method === "POST") {
+      if (path[1] === "register") {
+        await rateLimit(db, "register:" + ip, 30, 3600000);
+        await createAccount(db, input.username, input.password);
+        return json({ ok: true, message: "注册成功，请登录" }, 201);
+      }
+      if (path[1] === "login") {
+        await rateLimit(db, "login-ip:" + ip, 100, 600000);
+        const { key } = usernameKey(input.username);
+        validPassword(input.password);
+        await rateLimit(db, "login:" + ip + ":" + key, 20, 600000);
+        if (key === "admin")
+          await initializeAdmin(db, env.INITIAL_ADMIN_PASSWORD);
+        const a = await db
+          .prepare("SELECT * FROM accounts WHERE username_key=?")
+          .bind(key)
+          .first<Account>();
+        const ok = a
+          ? await checkPassword(input.password, a)
+          : !!(await passwordHash(
+              input.password,
+              "unknown-account-dummy-salt",
+            )) && false;
+        if (!a || !ok || a.disabled)
+          throw new Failure(401, "用户名或密码不正确，或账号已停用");
+        return json(await issueSession(db, a));
+      }
+      if (path[1] === "logout") {
+        const token = requestToken(request);
+        if (token)
+          await db
+            .prepare("DELETE FROM sessions WHERE token_hash=?")
+            .bind(await sha256(token))
+            .run();
+        return json({ ok: true });
+      }
+    }
+    const account = await authenticated(db, request),
+      user = publicUser(account),
+      email = account.username,
+      admin = account.role === "admin";
+    if (path[0] === "auth" && path[1] === "password" && method === "POST") {
+      await rateLimit(db, "password:" + account.id, 10, 600000);
+      return json(
+        await changePassword(
+          db,
+          account,
+          input.currentPassword,
+          input.newPassword,
+        ),
+      );
+    }
     if (method === "POST" && path[2] === "files") {
       if (Number(request.headers.get("content-length")) > 22 * 1024 * 1024)
         throw new Failure(413, "单个附件最大 20 MB");
       uploadForm = await request.formData();
     }
-    if (method !== "GET") {
-      const origin = request.headers.get("origin");
-      if (origin && origin !== new URL(request.url).origin)
-        throw new Failure(403, "请求来源不匹配");
-    }
-    if (path[0] === "me" && method === "GET")
-      return json({ ...user, email, role: member.role });
+    if (path[0] === "me" && method === "GET") return json(user);
     if (path[0] === "members") {
       if (!admin) throw new Failure(403, "仅管理员可管理成员");
       if (method === "GET")
         return json(
-          (await db.prepare("SELECT * FROM members ORDER BY created_at").all())
-            .results,
+          (
+            await db
+              .prepare(
+                "SELECT id,username,role,disabled,created_at FROM accounts ORDER BY created_at",
+              )
+              .all()
+          ).results,
         );
-      const body = input as Record<string, string>;
-      const target = (body.email || "").trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target))
-        throw new Failure(400, "请输入有效邮箱");
-      if (method === "POST") {
-        await db
-          .prepare(
-            "INSERT INTO members(email,role,created_at) VALUES(?,'member',?) ON CONFLICT(email) DO NOTHING",
-          )
-          .bind(target, now)
-          .run();
-        return json({ ok: true });
-      }
-      if (method === "DELETE") {
-        await db
-          .prepare("DELETE FROM members WHERE email=? AND role!='admin'")
-          .bind(target)
-          .run();
+      if (method === "PATCH") {
+        if (typeof input.id !== "string" || typeof input.disabled !== "boolean")
+          throw new Failure(400, "参数无效");
+        const target = await db
+          .prepare("SELECT role FROM accounts WHERE id=?")
+          .bind(input.id)
+          .first<{ role: string }>();
+        if (!target) throw new Failure(404, "账号不存在");
+        if (target.role === "admin")
+          throw new Failure(400, "不能停用管理员账号");
+        await db.batch([
+          db
+            .prepare(
+              "UPDATE accounts SET disabled=? WHERE id=? AND role!='admin'",
+            )
+            .bind(input.disabled ? 1 : 0, input.id),
+          db.prepare("DELETE FROM sessions WHERE user_id=?").bind(input.id),
+        ]);
         return json({ ok: true });
       }
     }
@@ -250,7 +302,33 @@ async function handle(request: Request) {
     return json({ error: "服务暂时不可用，请稍后重试" }, 500);
   }
 }
-export const GET = handle,
-  POST = handle,
-  PATCH = handle,
-  DELETE = handle;
+async function dispatch(request: Request) {
+  const origin = request.headers.get("origin"),
+    allowed =
+      origin === new URL(request.url).origin ||
+      origin === "https://gao-ao-1.github.io";
+  if (request.method === "OPTIONS" && !allowed)
+    return json({ error: "请求来源不匹配" }, 403);
+  const response =
+    request.method === "OPTIONS"
+      ? new Response(null, { status: 204 })
+      : await handle(request);
+  const headers = new Headers(response.headers);
+  headers.set("Vary", "Origin");
+  if (origin && allowed) {
+    headers.set("Access-Control-Allow-Origin", origin);
+    headers.set(
+      "Access-Control-Allow-Methods",
+      "GET,POST,PATCH,DELETE,OPTIONS",
+    );
+    headers.set("Access-Control-Allow-Headers", "Authorization,Content-Type");
+    headers.set("Access-Control-Expose-Headers", "Content-Disposition");
+    headers.set("Access-Control-Max-Age", "600");
+  }
+  return new Response(response.body, { status: response.status, headers });
+}
+export const GET = dispatch,
+  POST = dispatch,
+  PATCH = dispatch,
+  DELETE = dispatch,
+  OPTIONS = dispatch;

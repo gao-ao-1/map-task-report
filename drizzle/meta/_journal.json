@@ -15,6 +15,20 @@
       "when": 1793173877429,
       "tag": "0001_fuzzy_jack_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793192920242,
+      "tag": "0002_steady_ogun",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793193221744,
+      "tag": "0003_curved_madrox",
+      "breakpoints": true
     }
   ]
 }

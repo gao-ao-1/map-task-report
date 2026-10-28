@@ -1,8 +1,11 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import Atlas from '../app/atlas';
-import '../app/globals.css';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import Atlas from "../app/atlas";
+import "../app/globals.css";
+import { setApiBase } from "../lib/client-api";
 
-createRoot(document.getElementById('root')!).render(
-  <Atlas preview geoBase="./public/geo/" workspaceUrl="https://county-report-atlas.regaleel259.chatgpt.site/" />
+setApiBase("https://county-report-atlas.regaleel259.chatgpt.site");
+
+createRoot(document.getElementById("root")!).render(
+  <Atlas geoBase="./public/geo/" homeHref="./" />,
 );
