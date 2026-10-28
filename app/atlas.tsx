@@ -96,7 +96,12 @@ const send = (method: string, body: unknown) => ({
   body: JSON.stringify(body),
 });
 const active = (r: Report) => ["待启动", "编写中", "审核中"].includes(r.status);
-export default function Atlas() {
+export default function Atlas({
+  preview = false,
+  geoBase = "/geo/",
+  workspaceUrl = "",
+}: { preview?: boolean; geoBase?: string; workspaceUrl?: string } = {}) {
+  const signInUrl = preview ? workspaceUrl : "/signin-with-chatgpt?return_to=/";
   const [user, setUser] = useState<User | null>(null),
     [authError, setAuthError] = useState(""),
     [reports, setReports] = useState<Report[]>([]),
@@ -191,6 +196,7 @@ export default function Atlas() {
     current = current.parent ? regionByCode.get(current.parent) : undefined;
   }
   async function refresh() {
+    if (preview) return;
     try {
       const u = await api("me");
       setUser(u);
@@ -205,7 +211,7 @@ export default function Atlas() {
   }
   useEffect(() => {
     refresh();
-    fetch("/geo/regions.json")
+    fetch(`${geoBase}regions.json`)
       .then((r) => {
         if (!r.ok) throw Error("行政区目录加载失败");
         return r.json() as Promise<Region[]>;
@@ -220,7 +226,7 @@ export default function Atlas() {
     setMapError("");
     setZoom(1);
     setPan({ x: 0, y: 0 });
-    fetch(`/geo/${level}.json`, { signal: controller.signal })
+    fetch(`${geoBase}${level}.json`, { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw Error("该地区暂无下级边界，请返回上级或搜索县名");
         return r.json() as Promise<{ features: Feature[] }>;
@@ -322,6 +328,10 @@ export default function Atlas() {
     }
   }
   function newReport() {
+    if (preview) {
+      window.location.assign(signInUrl);
+      return;
+    }
     if (!user) {
       setNotice("请先登录并加入团队");
       return;
@@ -435,7 +445,7 @@ export default function Atlas() {
   return (
     <div className="app-shell">
       <aside className="rail">
-        <a className="brand" href="/" aria-label="县域报告地图">
+        <a className="brand" href={preview ? "./" : "/"} aria-label="县域报告地图">
           <Layers size={25} />
         </a>
         <button
@@ -475,13 +485,13 @@ export default function Atlas() {
           <div>
             <div className="eyebrow">RESEARCH ATLAS / 科研协作</div>
             <h1>
-              县域报告地图<span className="edition">团队版</span>
+              县域报告地图<span className="edition">{preview ? "地图预览" : "团队版"}</span>
             </h1>
           </div>
           <div className="header-actions">
             <span className="live">
               <i />
-              共享工作空间
+              {preview ? "全国地图浏览" : "共享工作空间"}
             </span>
             {user ? (
               <>
@@ -503,7 +513,7 @@ export default function Atlas() {
             ) : (
               <a
                 className="button secondary"
-                href="/signin-with-chatgpt?return_to=/"
+                href={signInUrl}
                 target="_top"
               >
                 <LogIn size={16} />
@@ -512,6 +522,10 @@ export default function Atlas() {
             )}
           </div>
         </header>
+        {preview && <div className="auth-banner">
+          当前为地图浏览页，尚未连接团队任务数据。登录、报告录入及 Word/PDF 上传请进入完整工作空间（需要站点访问权限）。
+          <a href={signInUrl} target="_top">进入工作空间 →</a>
+        </div>}
         {authError && (
           <div className="auth-banner">
             {authError}。
@@ -549,14 +563,14 @@ export default function Atlas() {
             </div>
             <button className="button primary" onClick={newReport}>
               <Plus size={18} />
-              新建报告
+              {preview ? "登录并管理报告" : "新建报告"}
             </button>
           </section>
           <section className="stats">
             <div>
               <span>报告总数</span>
               <strong>
-                {reports.length}
+                {preview ? "—" : reports.length}
                 <small>份</small>
               </strong>
               <Files />
@@ -564,7 +578,7 @@ export default function Atlas() {
             <div>
               <span>正在进行</span>
               <strong>
-                {reports.filter(active).length}
+                {preview ? "—" : reports.filter(active).length}
                 <small>份</small>
               </strong>
               <Clock />
@@ -572,7 +586,7 @@ export default function Atlas() {
             <div>
               <span>覆盖县域</span>
               <strong>
-                {new Set(reports.map((r) => r.county)).size}
+                {preview ? "—" : new Set(reports.map((r) => r.county)).size}
                 <small>个</small>
               </strong>
               <MapPin />
@@ -580,7 +594,7 @@ export default function Atlas() {
             <div>
               <span>已完成</span>
               <strong>
-                {reports.filter((r) => r.status === "已完成").length}
+                {preview ? "—" : reports.filter((r) => r.status === "已完成").length}
                 <small>份</small>
               </strong>
               <Check />
@@ -592,7 +606,7 @@ export default function Atlas() {
                 <Search size={18} />
                 <input
                   aria-label="搜索县名、报告或甲方"
-                  placeholder="搜索县名、报告名称或甲方…"
+                  placeholder={preview ? "搜索县名，直接定位…" : "搜索县名、报告名称或甲方…"}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -621,6 +635,7 @@ export default function Atlas() {
                 <SlidersHorizontal size={16} />
                 <select
                   aria-label="任务状态"
+                  disabled={preview}
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                 >
@@ -632,6 +647,7 @@ export default function Atlas() {
                 <label className="checkbox">
                   <input
                     type="checkbox"
+                    disabled={preview}
                     checked={mine}
                     onChange={(e) => setMine(e.target.checked)}
                   />
@@ -777,7 +793,7 @@ export default function Atlas() {
                                 fillRule="evenodd"
                                 tabIndex={r ? 0 : undefined}
                                 role={r ? "button" : undefined}
-                                aria-label={`${f.properties.name || "边界"}，${items.length}份报告`}
+                                aria-label={preview ? `${f.properties.name || "边界"}，浏览地区` : `${f.properties.name || "边界"}，${items.length}份报告`}
                                 onMouseEnter={() => setHover(r || null)}
                                 onFocus={() => setHover(r || null)}
                                 onBlur={() => setHover(null)}
@@ -863,7 +879,7 @@ export default function Atlas() {
                     </span>
                     <span>
                       <i />
-                      暂无任务
+                      {preview ? "未连接任务数据" : "暂无任务"}
                     </span>
                   </div>
                   <span>边界来源：DataV.GeoAtlas</span>
@@ -882,8 +898,8 @@ export default function Atlas() {
                 {focus ? (
                   <>
                     <div className="region-count">
-                      <strong>{focusReports.filter(active).length}</strong>
-                      <span>份正在进行的报告</span>
+                      <strong>{preview ? "—" : focusReports.filter(active).length}</strong>
+                      <span>{preview ? "登录工作空间后查看任务" : "份正在进行的报告"}</span>
                     </div>
                     <div className="region-tasks">
                       {focusReports.length ? (
@@ -915,8 +931,8 @@ export default function Atlas() {
                       ) : (
                         <div className="empty compact">
                           <Files size={28} />
-                          <h4>这里还没有报告</h4>
-                          <p>点击地区后，可在此新建任务。</p>
+                          <h4>{preview ? "请在工作空间查看报告" : "这里还没有报告"}</h4>
+                          <p>{preview ? "本页仅展示地区边界，不代表该地区没有任务。" : "点击地区后，可在此新建任务。"}</p>
                         </div>
                       )}
                     </div>
@@ -945,7 +961,7 @@ export default function Atlas() {
               <div className="section-title">
                 <h3>
                   {selected ? `${selected.name}的报告` : "报告列表"}
-                  <span>{visible.length}</span>
+                  <span>{preview ? "未连接" : visible.length}</span>
                 </h3>
                 {selected && (
                   <button
@@ -1004,19 +1020,19 @@ export default function Atlas() {
                   <Files size={30} />
                   <div>
                     <h4>
-                      {reports.length
+                      {preview ? "登录工作空间，查看团队报告" : reports.length
                         ? "没有符合筛选条件的报告"
                         : "还没有报告，开始记录第一个项目"}
                     </h4>
                     <p>
-                      {reports.length
+                      {preview ? "多人录入、报告去重和附件上传在完整工作空间中使用。" : reports.length
                         ? "试试其他县名、任务状态或清除筛选。"
                         : "新建一份报告，地图会自动展示它所在的县域。"}
                     </p>
                   </div>
                   <button className="button secondary" onClick={newReport}>
                     <Plus size={16} />
-                    新建报告
+                    {preview ? "进入工作空间" : "新建报告"}
                   </button>
                 </div>
               )}

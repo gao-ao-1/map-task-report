@@ -2,6 +2,15 @@
 
 全国地图上的报告协作系统。使用 React / Vinext、Cloudflare D1 数据库和 R2 私有附件存储，通过 Sites 部署。源码可以放 GitHub，但需要后端，不能只部署 GitHub Pages。
 
+## 两个网址的区别
+
+- [GitHub Pages 地图首页](https://gao-ao-1.github.io/map-task-report/)：无需登录即可浏览全国地图、逐级进入县域、搜索县名。该页没有连接报告数据库，任务数量显示“—”，不能据此判断某县有没有任务。
+- [完整工作空间](https://county-report-atlas.regaleel259.chatgpt.site/)：登录、团队报告、联系人、附件上传下载都在这里使用，需要站点访问权限。地图首页的“登录”和“登录并管理报告”会进入此网址。
+
+GitHub Pages 设置使用 **Deploy from a branch → main → / (root)**。仓库根目录的 `index.html` 是地图入口，`.nojekyll` 防止把 README 当作首页。页面资源均使用相对路径，支持 `/map-task-report/` 子目录。
+
+地图界面修改后，执行 `npm run build:pages`，将 `index.html`、`pages-assets/`、`.nojekyll` 和对应源码一并提交。完整系统仍使用 `npm run build`，两种构建用途不同。不能只上传 TSX 源码就期待 GitHub Pages 自动运行后端。
+
 ## 已实现
 
 - 全国→省→市→县逐级地图，县名搜索定位、悬停展示甲方/联系人/电话/负责人/进度。

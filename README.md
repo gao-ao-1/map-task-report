@@ -3,7 +3,10 @@
 全国县域报告任务管理：地图悬停查看甲方、联系人与任务进度，支持多人协作、Word/PDF 附件上传，以及数据库级报告名称去重。
 
 - [完整中文使用与运行说明](./README.zh-CN.md)
+- [GitHub Pages 地图首页（公开地图浏览）](https://gao-ao-1.github.io/map-task-report/)
 - [已部署站点（需获得访问权限）](https://county-report-atlas.regaleel259.chatgpt.site)
+
+GitHub Pages 现在使用根目录 `index.html` 展示地图，可搜索和逐级浏览县域。该页面没有连接任务数据；登录、报告和附件操作通过页面入口进入完整工作空间。地图界面更新后运行 `npm run build:pages` 并提交生成文件。
 
 ## 下载和测试
 
