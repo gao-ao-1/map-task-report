@@ -1,0 +1,1 @@
+ALTER TABLE `reports` ADD `creator_id` text DEFAULT '' NOT NULL;
